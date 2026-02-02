@@ -19,8 +19,6 @@ type Props = {
   lang: Lang;
   onLangChange: (lang: Lang) => void;
   nav: {
-    immigration: string;
-    company: string;
     services: string;
   };
 };
@@ -83,10 +81,7 @@ export function ImmagrateHeader({ lang, onLangChange, nav }: Props) {
           </div>
           <div>
             <p className="text-sm font-semibold text-[#C52D2F] leading-tight">
-              Immagrate
-            </p>
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[#808080]">
-              Canada Readiness
+              ImmaGreat
             </p>
           </div>
         </div>
@@ -95,14 +90,14 @@ export function ImmagrateHeader({ lang, onLangChange, nav }: Props) {
             <div className="group relative">
               <a
                 className="flex items-center gap-2 hover:text-[#C52D2F] transition"
-                href="#immigration"
+                href="#services"
               >
-                {nav.immigration}
+                {nav.services}
                 <span className="text-[10px] text-[#9A9A9A] group-hover:text-[#C52D2F] transition">
                   ▼
                 </span>
               </a>
-              <div className="absolute left-1/2 top-full z-0 w-[68rem] -translate-x-1/2 opacity-0 pointer-events-none translate-y-6 transition duration-200 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-6 before:absolute before:-top-6 before:left-0 before:h-6 before:w-full before:content-['']">
+              <div className="fixed left-1/2 top-[72px] z-0 w-[min(68rem,calc(100vw-2rem))] -translate-x-1/2 opacity-0 pointer-events-none translate-y-6 transition duration-200 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-6 before:absolute before:-top-6 before:left-0 before:h-6 before:w-full before:content-['']">
                 <div className="rounded-xl border border-[#E6E6E6] bg-gradient-to-br from-[#FFE2DC] via-[#FFF7F5] to-[#DCEBFF] shadow-lg p-4 text-left">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#808080]">
                     {menuText.eyebrow}
@@ -241,12 +236,6 @@ export function ImmagrateHeader({ lang, onLangChange, nav }: Props) {
                 </div>
               </div>
             </div>
-            <a className="hover:text-[#C52D2F] transition" href="#company">
-              {nav.company}
-            </a>
-            <a className="hover:text-[#C52D2F] transition" href="#services">
-              {nav.services}
-            </a>
           </nav>
           <LanguageToggle lang={lang} onChange={onLangChange} />
         </div>
