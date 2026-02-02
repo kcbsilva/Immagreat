@@ -68,7 +68,7 @@ export function ImmagrateHeader({ lang, onLangChange, nav }: Props) {
   const menuText = menuCopy[lang];
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[#E6E6E6] bg-white/90 backdrop-blur relative after:absolute after:inset-0 after:bg-white/90 after:backdrop-blur after:content-[''] after:z-10">
+    <header className="sticky top-0 z-30 border-b border-[#E6E6E6] bg-white/80 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-3 md:px-10 relative z-20">
         <div className="flex items-center gap-3">
           <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-[#E6E6E6] bg-white/80 p-1">
