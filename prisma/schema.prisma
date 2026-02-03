@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  MODERATOR
+}
+
+enum ClassroomStatus {
+  DRAFT
+  LIVE
+  ENDED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacherSessions ClassroomSession[] @relation("TeacherSessions")
+  enrollments     Enrollment[]
+}
+
+model ClassroomSession {
+  id        String          @id @default(cuid())
+  title     String
+  status    ClassroomStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  primaryTeacherId String
+  primaryTeacher   User   @relation("TeacherSessions", fields: [primaryTeacherId], references: [id])
+
+  enrollments Enrollment[]
+
+  // LiveKit room name (we can reuse id)
+  livekitRoom String @unique
+}
+
+model Enrollment {
+  id String @id @default(cuid())
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  classroomSessionId String
+  classroomSession   ClassroomSession @relation(fields: [classroomSessionId], references: [id], onDelete: Cascade)
+
+  // role inside this session (teacher2 / moderator / student)
+  role Role
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, classroomSessionId])
+  @@index([classroomSessionId])
+}

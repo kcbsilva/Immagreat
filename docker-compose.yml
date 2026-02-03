@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: immagreat
+      POSTGRES_PASSWORD: immagreat
+      POSTGRES_DB: immagreat
+    ports:
+      - "5432:5432"
+    volumes:
+      - immagreat_pg:/var/lib/postgresql/data
+
+  livekit:
+    image: livekit/livekit-server:v1.9.2
+    command: ["--config", "/etc/livekit.yaml"]
+    ports:
+      - "7880:7880"        # HTTP + WebSocket (signaling)
+      - "7881:7881"        # RTC over TCP
+      - "7882:7882/udp"    # RTC over UDP
+    volumes:
+      - ./infra/livekit/livekit.yaml:/etc/livekit.yaml:ro
+    depends_on:
+      - coturn
+
+  coturn:
+    image: coturn/coturn:4.6.2
+    command:
+      - -n
+      - --log-file=stdout
+      - --external-ip=${TURN_EXTERNAL_IP}
+      - --listening-port=3478
+      - --tls-listening-port=5349
+      - --min-port=49160
+      - --max-port=49200
+      - --realm=${TURN_REALM}
+      - --user=${TURN_USER}:${TURN_PASS}
+      - --fingerprint
+      - --no-cli
+      - --lt-cred-mech
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"
+      - "49160-49200:49160-49200/udp"
+
+volumes:
+  immagreat_pg:
