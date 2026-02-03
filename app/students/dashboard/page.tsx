@@ -89,6 +89,7 @@ export default function StudentDashboardPage() {
           title="Schedule"
           body="Upcoming sessions, attendance, and reminders."
           cta="View schedule"
+          href="/students/calendar"
         />
         <Card
           icon={<FileText className="h-5 w-5" />}

@@ -47,11 +47,38 @@ export default function StudentsLayout({
             </Link>
           </div>
         </div>
+
+        {/* Sub-header nav */}
+        <div className="border-t border-[#E6E6E6] bg-white/70">
+          <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-2 md:px-10">
+            <nav className="flex items-center gap-2 text-sm font-semibold">
+              <Link
+                href="/students/dashboard"
+                className="rounded-full border border-[#E6E6E6] bg-white px-4 py-2 text-xs font-semibold text-[#4D4D4D] shadow-sm transition hover:-translate-y-0.5 hover:border-[#C52D2F] hover:text-[#C52D2F]"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/students/classroom"
+                className="rounded-full border border-[#E6E6E6] bg-white px-4 py-2 text-xs font-semibold text-[#4D4D4D] shadow-sm transition hover:-translate-y-0.5 hover:border-[#C52D2F] hover:text-[#C52D2F]"
+              >
+                Classrooms
+              </Link>
+              <Link
+                href="/students/calendar"
+                className="rounded-full border border-[#E6E6E6] bg-white px-4 py-2 text-xs font-semibold text-[#4D4D4D] shadow-sm transition hover:-translate-y-0.5 hover:border-[#C52D2F] hover:text-[#C52D2F]"
+              >
+                Calendar
+              </Link>
+            </nav>
+            <p className="hidden text-xs text-[#808080] sm:block">
+              Daily • Weekly • Monthly views
+            </p>
+          </div>
+        </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl px-6 py-10 md:px-10">
-        {children}
-      </main>
+      <main className="mx-auto w-full max-w-7xl px-6 py-8 md:px-10">{children}</main>
     </div>
   );
 }
