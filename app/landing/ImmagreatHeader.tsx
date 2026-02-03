@@ -27,6 +27,7 @@ export function ImmagrateHeader({ lang, onLangChange, nav }: Props) {
   const menuCopy = {
     en: {
       eyebrow: "Our Services",
+      studentPortal: "Student Portal",
       english: "English",
       french: "French",
       soon: "Soon",
@@ -45,6 +46,7 @@ export function ImmagrateHeader({ lang, onLangChange, nav }: Props) {
     },
     pt: {
       eyebrow: "Nossos Serviços",
+      studentPortal: "Portal do Aluno",
       english: "Inglês",
       french: "Francês",
       soon: "Em breve",
@@ -85,7 +87,7 @@ export function ImmagrateHeader({ lang, onLangChange, nav }: Props) {
             </p>
           </div>
         </div>
-        <div className="flex flex-1 items-center justify-end gap-4 md:gap-6">
+        <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4 md:gap-6">
           <nav className="hidden items-center gap-4 text-sm font-semibold text-[#4D4D4D] md:flex">
             <div className="group relative">
               <a
@@ -237,6 +239,16 @@ export function ImmagrateHeader({ lang, onLangChange, nav }: Props) {
               </div>
             </div>
           </nav>
+
+          <Link
+            href="/students"
+            className="inline-flex items-center gap-2 rounded-full border border-[#E6E6E6] bg-white px-3 py-2 text-xs font-semibold text-[#4D4D4D] shadow-sm transition hover:-translate-y-0.5 hover:border-[#C52D2F] hover:text-[#C52D2F] md:px-4"
+            aria-label={menuText.studentPortal}
+          >
+            <GraduationCap className="h-4 w-4" />
+            <span className="hidden sm:inline">{menuText.studentPortal}</span>
+          </Link>
+
           <LanguageToggle lang={lang} onChange={onLangChange} />
         </div>
       </div>
