@@ -15,6 +15,7 @@ type Classroom = {
   startTime?: string;
   endTime?: string;
   days?: boolean[];
+  enrolledStudentEmails?: string[];
 };
 
 function loadClassrooms(): Classroom[] {
@@ -31,9 +32,19 @@ function loadClassrooms(): Classroom[] {
 export default function ClassroomHomePage() {
   const router = useRouter();
   const [roomId, setRoomId] = useState("");
+  const [studentEmail] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("immagreat_student_email")?.toLowerCase() ?? null;
+  });
   const [classrooms] = useState<Classroom[]>(() => {
     if (typeof window === "undefined") return [];
-    return loadClassrooms();
+    const all = loadClassrooms();
+    if (!studentEmail) return [];
+    return all.filter((c) =>
+      (c.enrolledStudentEmails ?? [])
+        .map((x) => String(x).toLowerCase())
+        .includes(studentEmail)
+    );
   });
 
   const canJoin = useMemo(() => roomId.trim().length >= 4, [roomId]);
@@ -88,7 +99,7 @@ export default function ClassroomHomePage() {
             <ArrowRight className="h-4 w-4" />
           </button>
         </form>
-        <p className="mt-2 text-xs text-[#808080]">Tip: your teacher can send you an invite link.</p>
+        <p className="mt-2 text-xs text-[#808080]">Tip: your teacher will assign you to a class. If you know your classroom code, you can also join directly.</p>
       </section>
 
       <section className="space-y-3">

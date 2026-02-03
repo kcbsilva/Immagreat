@@ -38,6 +38,7 @@ type Classroom = {
   startTime: string;
   endTime: string;
   days: boolean[]; // 0..6 Sun..Sat
+  enrolledStudentEmails?: string[];
 };
 
 function loadClassrooms(): Classroom[] {
@@ -80,6 +81,7 @@ export default function TeacherClassroomsPage() {
     // Mon-Fri
     [false, true, true, true, true, true, false]
   );
+  const [studentEmails, setStudentEmails] = useState("");
 
   const [classrooms, setClassrooms] = useState<Classroom[]>(() => {
     if (typeof window === "undefined") return [];
@@ -119,6 +121,12 @@ export default function TeacherClassroomsPage() {
     if (!teacherEmail) return;
 
     const id = makeRoomId();
+
+    const enrolledStudentEmails = studentEmails
+      .split(/[,\n]/g)
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+
     const newRoom: Classroom = {
       id,
       title: title.trim() || "ImmaGreat - Classroom",
@@ -129,12 +137,14 @@ export default function TeacherClassroomsPage() {
       startTime,
       endTime,
       days,
+      enrolledStudentEmails: enrolledStudentEmails.length ? enrolledStudentEmails : [],
     };
 
     const next = [newRoom, ...classrooms];
     setClassrooms(next);
     saveClassrooms(next);
 
+    setStudentEmails("");
     closeModal();
     router.push(`/teachers/classroom/${id}`);
   }
@@ -262,6 +272,17 @@ export default function TeacherClassroomsPage() {
                   placeholder="ImmaGreat - Y26 - English - C1"
                   className="w-full rounded-2xl border border-[#E6E6E6] bg-white px-4 py-3 text-sm outline-none"
                 />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#808080]">Students (emails)</span>
+                <textarea
+                  value={studentEmails}
+                  onChange={(e) => setStudentEmails(e.target.value)}
+                  placeholder="student1@email.com, student2@email.com"
+                  className="min-h-[96px] w-full rounded-2xl border border-[#E6E6E6] bg-white px-4 py-3 text-sm outline-none"
+                />
+                <p className="text-xs text-[#808080]">Comma or newline separated. Only these students will see this class on their calendar.</p>
               </label>
 
               <div className="grid gap-3 sm:grid-cols-2">

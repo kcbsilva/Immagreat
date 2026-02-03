@@ -16,6 +16,7 @@ type Classroom = {
   startTime?: string; // HH:MM
   endTime?: string; // HH:MM
   days?: boolean[]; // Sun..Sat
+  enrolledStudentEmails?: string[];
 };
 
 type EventInstance = {
@@ -148,9 +149,21 @@ export default function StudentCalendarPage() {
     return d;
   });
 
+  const [studentEmail] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("immagreat_student_email")?.toLowerCase() ?? null;
+  });
+
   const [classrooms] = useState<Classroom[]>(() => {
     if (typeof window === "undefined") return [];
-    return loadClassrooms();
+    const all = loadClassrooms();
+    if (!studentEmail) return [];
+
+    // Only show classes explicitly assigned to this student.
+    return all.filter((c) => {
+      const list = (c.enrolledStudentEmails ?? []) as string[];
+      return list.map((x) => String(x).toLowerCase()).includes(studentEmail);
+    });
   });
 
   const range = useMemo(() => {
