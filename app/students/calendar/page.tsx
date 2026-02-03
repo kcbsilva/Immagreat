@@ -304,29 +304,64 @@ function DayView({ date, events }: { date: Date; events: EventInstance[] }) {
   const ymd = yyyyMmDd(date);
   const list = events.filter((e) => e.date === ymd);
 
+  const startMinutes = 6 * 60;
+  const endMinutes = 22 * 60;
+  const slots = [] as { label: string; key: string }[];
+
+  for (let m = startMinutes; m <= endMinutes; m += 30) {
+    const hh = String(Math.floor(m / 60)).padStart(2, "0");
+    const mm = String(m % 60).padStart(2, "0");
+    slots.push({ label: `${hh}:${mm}`, key: `${hh}:${mm}` });
+  }
+
+  const byStart = new Map<string, EventInstance[]>();
+  for (const e of list) {
+    const l = byStart.get(e.startTime) ?? [];
+    l.push(e);
+    byStart.set(e.startTime, l);
+  }
+
   return (
     <section className="rounded-3xl border border-[#E6E6E6] bg-white p-6 shadow-[0_14px_40px_rgba(0,0,0,0.05)] md:p-8">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">{ymd}</p>
       <h2 className="mt-1 text-xl font-semibold text-[#4D4D4D]">{date.toLocaleDateString(undefined, { weekday: "long" })}</h2>
 
+      <div className="mt-6 overflow-hidden rounded-3xl border border-[#E6E6E6]">
+        <div className="max-h-[520px] overflow-auto bg-white">
+          {slots.map((s) => {
+            const eventsAt = byStart.get(s.key) ?? [];
+            return (
+              <div key={s.key} className="flex border-b border-[#F0F0F0]">
+                <div className="w-20 shrink-0 border-r border-[#F0F0F0] px-4 py-3 text-xs font-semibold text-[#808080]">
+                  {s.label}
+                </div>
+                <div className="flex-1 px-4 py-3">
+                  {eventsAt.length === 0 ? (
+                    <div className="h-6" />
+                  ) : (
+                    <div className="space-y-2">
+                      {eventsAt.map((e) => (
+                        <Link
+                          key={`${e.classroomId}-${e.startTime}`}
+                          href={`/students/classroom/${e.classroomId}`}
+                          className="block rounded-2xl border border-[#E6E6E6] bg-[#FFF8F8] p-3 hover:border-[#C52D2F]"
+                        >
+                          <p className="text-sm font-semibold text-[#4D4D4D]">{e.title}</p>
+                          <p className="mt-1 text-xs text-[#808080]">{e.startTime}–{e.endTime}</p>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {list.length === 0 ? (
         <p className="mt-4 text-sm text-[#808080]">No classes scheduled.</p>
-      ) : (
-        <div className="mt-4 space-y-3">
-          {list.map((e) => (
-            <div key={`${e.classroomId}-${e.startTime}`} className="rounded-2xl border border-[#E6E6E6] bg-[#FFF8F8] p-4">
-              <p className="text-sm font-semibold">{e.title}</p>
-              <p className="mt-1 text-xs text-[#808080]">{e.startTime}–{e.endTime}</p>
-              <Link
-                href={`/students/classroom/${e.classroomId}`}
-                className="mt-3 inline-flex rounded-full bg-[#C52D2F] px-4 py-2 text-xs font-semibold text-white"
-              >
-                Open classroom
-              </Link>
-            </div>
-          ))}
-        </div>
-      )}
+      ) : null}
     </section>
   );
 }

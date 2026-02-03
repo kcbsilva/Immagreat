@@ -32,6 +32,12 @@ export default function TeachersLayout({ children }: { children: React.ReactNode
           <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-2 md:px-10">
             <nav className="flex items-center gap-2 text-sm font-semibold">
               <Link
+                href="/teachers/dashboard"
+                className="rounded-full border border-[#E6E6E6] bg-white px-4 py-2 text-xs font-semibold text-[#4D4D4D] shadow-sm transition hover:-translate-y-0.5 hover:border-[#C52D2F] hover:text-[#C52D2F]"
+              >
+                Dashboard
+              </Link>
+              <Link
                 href="/teachers/classrooms"
                 className="rounded-full border border-[#E6E6E6] bg-white px-4 py-2 text-xs font-semibold text-[#4D4D4D] shadow-sm transition hover:-translate-y-0.5 hover:border-[#C52D2F] hover:text-[#C52D2F]"
               >
