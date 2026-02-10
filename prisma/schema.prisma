@@ -11,6 +11,7 @@ enum Role {
   STUDENT
   TEACHER
   MODERATOR
+  ADMIN
 }
 
 enum ClassroomStatus {
@@ -25,6 +26,19 @@ model User {
   passwordHash String
   role         Role
 
+  // Profile Information
+  firstName      String?
+  lastName       String?
+  birthday       DateTime?
+  gender         String?
+  address        String?
+  secondaryEmail String?
+  phone1         String?
+  phone2         String?
+  hasWhatsApp    Boolean   @default(false)
+  hasTelegram    Boolean   @default(false)
+  referralSource String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -36,6 +50,13 @@ model ClassroomSession {
   id        String          @id @default(cuid())
   title     String
   status    ClassroomStatus @default(DRAFT)
+
+  // Scheduling
+  startDate DateTime?
+  endDate   DateTime?
+  startTime String?
+  endTime   String?
+  days      Int[]             @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

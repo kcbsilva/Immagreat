@@ -3,74 +3,82 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, LogOut, Users, Video } from "lucide-react";
+import { CalendarDays, LogOut, Users, Video, Loader2 } from "lucide-react";
 
 type Classroom = {
   id: string;
   title: string;
   teacherEmail: string;
   createdAtMs: number;
-  startDate?: string;
-  endDate?: string;
-  startTime?: string;
-  endTime?: string;
-  days?: boolean[];
 };
-
-function loadClassrooms(): Classroom[] {
-  try {
-    const raw = localStorage.getItem("immagreat_classrooms");
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Classroom[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 export default function TeacherDashboardPage() {
   const router = useRouter();
-
-  const [teacherEmail] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("immagreat_teacher_email");
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [teacherEmail, setTeacherEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!teacherEmail) router.replace("/teachers/login");
-  }, [teacherEmail, router]);
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) {
+          router.push("/teachers/login");
+          return;
+        }
+        const data = await res.json();
+        if (data.user?.role !== "TEACHER" && data.user?.role !== "ADMIN") {
+          router.push("/landing");
+          return;
+        }
+        setTeacherEmail(data.user.email);
+        // Sync email to localStorage for any remaining legacy components
+        localStorage.setItem("immagreat_teacher_email", data.user.email);
+      } catch (err) {
+        router.push("/teachers/login");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    checkAuth();
+  }, [router]);
 
-  const [classrooms] = useState<Classroom[]>(() => {
-    if (typeof window === "undefined") return [];
-    return loadClassrooms();
-  });
+  async function handleLogout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      localStorage.removeItem("immagreat_teacher_email");
+      router.push("/teachers/login");
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
+  }
 
-  const mine = useMemo(() => {
-    if (!teacherEmail) return [];
-    return classrooms.filter((c) => c.teacherEmail === teacherEmail);
-  }, [classrooms, teacherEmail]);
-
-  function logout() {
-    localStorage.removeItem("immagreat_teacher_email");
-    router.push("/teachers/login");
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-[#C52D2F]" />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-8">
       <section className="flex flex-col gap-4 rounded-3xl border border-[#E6E6E6] bg-white p-8 shadow-[0_18px_50px_rgba(0,0,0,0.06)] md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">Teacher</p>
-          <h1 className="mt-1 text-2xl font-semibold text-[#4D4D4D] sm:text-3xl">Dashboard</h1>
-          <p className="mt-2 text-sm text-[#808080]">{teacherEmail ? `Signed in as ${teacherEmail}` : "Loading…"}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">
+            Teacher
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-[#4D4D4D] sm:text-3xl">
+            Dashboard
+          </h1>
+          <p className="mt-2 text-sm text-[#808080]">
+            Signed in as{" "}
+            <span className="font-bold text-[#4D4D4D]">{teacherEmail}</span>
+          </p>
         </div>
 
-        <button
-          type="button"
-          onClick={logout}
-          className="inline-flex items-center gap-2 rounded-full bg-[#C52D2F] px-4 py-2 text-xs font-semibold text-white shadow-[0_10px_30px_rgba(197,45,47,0.35)] transition hover:-translate-y-0.5 hover:bg-[#a92325]"
-        >
-          <LogOut className="h-4 w-4" /> Sign out
-        </button>
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C52D2F] text-white font-bold text-lg shadow-lg shadow-[#C52D2F]/20">
+          {teacherEmail?.[0].toUpperCase() || "T"}
+        </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -89,17 +97,13 @@ export default function TeacherDashboardPage() {
           href="/teachers/calendar"
         />
         <Card
-          icon={<Video className="h-5 w-5" />}
-          title="Go live"
-          body={mine.length > 0 ? "Open your latest classroom session." : "Create a classroom first."}
-          cta={mine.length > 0 ? "Open latest" : "Create classroom"}
-          href={mine.length > 0 ? `/teachers/classroom/${mine[0]?.id}` : "/teachers/classrooms"}
+          icon={<Users className="h-5 w-5" />}
+          title="Students"
+          body="View students enrolled in your classes."
+          cta="View directory"
+          href="/teachers/students"
         />
       </section>
-
-      <p className="text-xs text-[#808080]">
-        MVP note: teacher auth is localStorage for now; we’ll migrate to email/password + Postgres.
-      </p>
     </div>
   );
 }

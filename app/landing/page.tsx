@@ -43,7 +43,7 @@ export default function ImmagratePage() {
         }}
       />
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-16 px-6 py-16 md:px-10 md:py-20">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-16 px-6 py-16 md:px-10 md:py-2">
         {/* Hero */}
         <section className="relative grid gap-10 rounded-3xl border border-[#E6E6E6] bg-white/90 p-8 shadow-[0_20px_60px_rgba(0,0,0,0.06)] backdrop-blur-xl md:grid-cols-[1.1fr_0.9fr] md:p-12">
           <div className="space-y-6">

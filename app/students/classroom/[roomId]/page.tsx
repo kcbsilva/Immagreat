@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, ShieldCheck } from "lucide-react";
+import { ShieldCheck, Loader2 } from "lucide-react";
+import Link from "next/link";
 
 type ChatMessage = {
   id: string;
@@ -21,28 +21,51 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export default function ClassroomRoomPage() {
+export default function StudentClassroomRoomPage() {
+  const router = useRouter();
   const params = useParams<{ roomId: string }>();
   const roomId = params?.roomId ?? "";
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [classroom, setClassroom] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const bcRef = useRef<BroadcastChannel | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
 
-  const studentEmail = useMemo(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("immagreat_student_email");
-  }, []);
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const meRes = await fetch("/api/auth/me");
+        if (!meRes.ok) {
+          router.push("/students/login");
+          return;
+        }
+        const meData = await meRes.json();
+        setUser(meData.user);
 
-  const roomUrl = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return `${window.location.origin}/students/classroom/${roomId}`;
-  }, [roomId]);
+        const roomRes = await fetch(`/api/classrooms/${roomId}`);
+        if (!roomRes.ok) {
+          const err = await roomRes.json();
+          setError(err.error || "Room not found");
+          return;
+        }
+        const roomData = await roomRes.json();
+        setClassroom(roomData.classroom);
+      } catch (err) {
+        setError("Connection error");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    init();
+  }, [roomId, router]);
 
   useEffect(() => {
     const bc = new BroadcastChannel(channelName(roomId));
     bcRef.current = bc;
-
     bc.onmessage = (ev) => {
       const data = ev.data as ChatMessage;
       if (!data?.id) return;
@@ -51,123 +74,133 @@ export default function ClassroomRoomPage() {
         return [...prev, data].slice(-200);
       });
     };
-
-    return () => {
-      bc.close();
-      bcRef.current = null;
-    };
+    return () => bc.close();
   }, [roomId]);
-
-  async function copyInvite() {
-    if (!roomUrl) return;
-    await navigator.clipboard.writeText(roomUrl);
-  }
 
   function sendMessage() {
     const text = draft.trim();
     if (!text) return;
-
-    const name = studentEmail ?? "Student";
     const msg: ChatMessage = {
       id: uid(),
       role: "student",
-      name,
+      name: user?.firstName || "Student",
       text,
       ts: Date.now(),
     };
-
     setDraft("");
     setMessages((prev) => [...prev, msg]);
     bcRef.current?.postMessage(msg);
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-[#C52D2F]" />
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-      <section className="rounded-3xl border border-[#E6E6E6] bg-white p-6 shadow-[0_18px_50px_rgba(0,0,0,0.06)] md:p-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div className="grid gap-6 lg:grid-cols-[1.5fr_0.5fr] max-w-7xl mx-auto">
+      <section className="rounded-3xl border border-[#E6E6E6] bg-white p-8 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-8">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">Classroom</p>
-            <h1 className="mt-1 text-2xl font-semibold text-[#4D4D4D] sm:text-3xl">
-              Room <span className="font-mono">{roomId}</span>
-            </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#808080]">
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#E6E6E6] bg-white px-3 py-1">
-                <ShieldCheck className="h-3.5 w-3.5 text-[#C52D2F]" />
-                Student view (watch + chat)
-              </span>
-              <span className="rounded-full bg-[#FFF5F5] px-3 py-1">Google Classroom-style layout</span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={copyInvite}
-              className="inline-flex items-center gap-2 rounded-full border border-[#E6E6E6] bg-white px-4 py-2 text-xs font-semibold text-[#4D4D4D] shadow-sm transition hover:-translate-y-0.5 hover:border-[#C52D2F] hover:text-[#C52D2F]"
-            >
-              <Copy className="h-4 w-4" /> Copy link
-            </button>
-            <Link
-              href="/students/classroom"
-              className="inline-flex items-center gap-2 rounded-full border border-[#E6E6E6] bg-white px-4 py-2 text-xs font-semibold text-[#4D4D4D] shadow-sm transition hover:-translate-y-0.5 hover:border-[#C52D2F] hover:text-[#C52D2F]"
-            >
-              Back
-            </Link>
-          </div>
-        </div>
-
-        <div className="mt-6 overflow-hidden rounded-3xl border border-[#E6E6E6] bg-black">
-          <div className="flex h-[420px] items-center justify-center p-8">
-            <div className="max-w-md text-center">
-              <p className="text-sm font-semibold text-white">Waiting for the teacher to go live…</p>
-              <p className="mt-2 text-xs text-white/70">
-                MVP note: video broadcasting is next. Chat works now (in the same browser/device via BroadcastChannel).
+            <p className="text-xs font-bold uppercase tracking-widest text-[#808080]">
+              Student Classroom
+            </p>
+            <h2 className="mt-1 text-3xl font-bold text-[#4D4D4D]">
+              {classroom?.title}
+            </h2>
+            <div className="mt-3 flex items-center gap-2">
+              <div className="h-6 w-6 rounded-full bg-green-500 animate-pulse" />
+              <p className="text-xs font-bold text-green-600 uppercase tracking-widest">
+                Live Now
               </p>
             </div>
           </div>
+          <Link
+            href="/students/dashboard"
+            className="h-12 px-6 rounded-full border border-[#E6E6E6] flex items-center justify-center text-xs font-bold text-[#4D4D4D] hover:border-[#C52D2F] transition"
+          >
+            Leave Class
+          </Link>
         </div>
+
+        {error ? (
+          <div className="rounded-3xl bg-red-50 p-12 text-center border-2 border-dashed border-red-100">
+            <p className="text-red-600 font-bold">{error}</p>
+          </div>
+        ) : (
+          <div className="relative aspect-video overflow-hidden rounded-[32px] bg-slate-900 shadow-2xl flex items-center justify-center">
+            <div className="text-center p-12">
+              <p className="text-white font-bold text-lg">
+                Class is in session
+              </p>
+              <p className="mt-2 text-white/50 text-sm max-w-xs mx-auto">
+                Teacher video stream will appear here when they start the
+                broadcast.
+              </p>
+              <div className="mt-8 flex justify-center">
+                <div className="h-12 w-12 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+              </div>
+            </div>
+            <div className="absolute top-6 left-6 flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest">
+              <ShieldCheck className="h-3 w-3 text-green-400" /> Secure
+              Connection
+            </div>
+          </div>
+        )}
       </section>
 
-      <aside className="rounded-3xl border border-[#E6E6E6] bg-white p-6 shadow-[0_18px_50px_rgba(0,0,0,0.06)] md:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#808080]">Class chat</p>
-        <div className="mt-4 h-[420px] overflow-auto rounded-2xl border border-[#E6E6E6] bg-[#FFF8F8] p-4">
+      <aside className="rounded-3xl border border-[#E6E6E6] bg-white p-6 shadow-sm flex flex-col h-[600px] lg:h-auto">
+        <div className="flex items-center gap-2 mb-6 text-[#C52D2F]">
+          <p className="text-xs font-bold uppercase tracking-widest text-[#808080]">
+            Chat with the class
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-auto space-y-4 mb-6 pr-2 custom-scrollbar">
           {messages.length === 0 ? (
-            <p className="text-sm text-[#808080]">No messages yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {messages
-                .slice()
-                .sort((a, b) => a.ts - b.ts)
-                .map((m) => (
-                  <div key={m.id} className="rounded-2xl border border-[#E6E6E6] bg-white p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold text-[#4D4D4D] truncate">{m.name}</p>
-                      <p className="text-[11px] text-[#808080]">{new Date(m.ts).toLocaleTimeString()}</p>
-                    </div>
-                    <p className="mt-1 text-sm text-[#4D4D4D]">{m.text}</p>
-                  </div>
-                ))}
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-40">
+              <p className="text-xs font-bold uppercase tracking-widest">
+                Say hello!
+              </p>
+              <p className="mt-2 text-[10px]">
+                Your messages are visible to the teacher and classmates.
+              </p>
             </div>
+          ) : (
+            messages
+              .sort((a, b) => a.ts - b.ts)
+              .map((m) => (
+                <div
+                  key={m.id}
+                  className={`flex flex-col ${m.role === "student" && m.name === user?.firstName ? "items-end" : "items-start"}`}
+                >
+                  <span className="text-[9px] font-bold text-[#808080] uppercase tracking-widest mb-1">
+                    {m.name}
+                  </span>
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${m.role === "student" && m.name === user?.firstName ? "bg-[#C52D2F] text-white rounded-tr-none" : "bg-slate-100 text-[#4D4D4D] rounded-tl-none border border-slate-50"}`}
+                  >
+                    {m.text}
+                  </div>
+                </div>
+              ))
           )}
         </div>
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-auto flex gap-2">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Message the class…"
-            className="w-full rounded-2xl border border-[#E6E6E6] bg-white px-4 py-3 text-sm outline-none"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                sendMessage();
-              }
-            }}
+            placeholder="Type message..."
+            className="flex-1 rounded-2xl border border-[#E6E6E6] bg-white px-5 py-3 text-sm outline-none focus:border-[#C52D2F]"
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
           <button
-            type="button"
             onClick={sendMessage}
-            className="rounded-2xl bg-[#C52D2F] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#a92325]"
+            className="rounded-2xl bg-[#C52D2F] px-5 py-3 text-sm font-bold text-white transition"
           >
             Send
           </button>

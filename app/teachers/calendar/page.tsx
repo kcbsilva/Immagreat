@@ -1,21 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 type ViewMode = "day" | "week" | "month";
 
 type Classroom = {
   id: string;
   title: string;
-  teacherEmail: string;
-  createdAtMs: number;
-  startDate?: string; // YYYY-MM-DD
-  endDate?: string; // YYYY-MM-DD
-  startTime?: string; // HH:MM
-  endTime?: string; // HH:MM
-  days?: boolean[]; // Sun..Sat
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+  days: number[]; // 0..6
 };
 
 type EventInstance = {
@@ -25,17 +23,6 @@ type EventInstance = {
   startTime: string;
   endTime: string;
 };
-
-function loadClassrooms(): Classroom[] {
-  try {
-    const raw = localStorage.getItem("immagreat_classrooms");
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Classroom[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 function yyyyMmDd(d: Date) {
   const y = d.getFullYear();
@@ -90,17 +77,19 @@ function dayNumber(d: Date) {
 function generateEventsForRange(
   classrooms: Classroom[],
   rangeStart: Date,
-  rangeEnd: Date
+  rangeEnd: Date,
 ): EventInstance[] {
   const events: EventInstance[] = [];
 
   for (const c of classrooms) {
-    if (!c.startDate || !c.endDate || !c.startTime || !c.endTime || !c.days) continue;
+    if (!c.startDate || !c.endDate || !c.startTime || !c.endTime || !c.days)
+      continue;
 
-    const periodStart = parseYmd(c.startDate);
-    const periodEnd = parseYmd(c.endDate);
+    const periodStart = parseYmd(c.startDate.split("T")[0]);
+    const periodEnd = parseYmd(c.endDate.split("T")[0]);
 
-    const start = rangeStart.getTime() > periodStart.getTime() ? rangeStart : periodStart;
+    const start =
+      rangeStart.getTime() > periodStart.getTime() ? rangeStart : periodStart;
     const end = rangeEnd.getTime() < periodEnd.getTime() ? rangeEnd : periodEnd;
 
     if (start.getTime() > end.getTime()) continue;
@@ -113,7 +102,7 @@ function generateEventsForRange(
 
     while (cur.getTime() <= last.getTime()) {
       const dow = cur.getDay();
-      if (c.days[dow]) {
+      if (c.days.includes(dow)) {
         events.push({
           classroomId: c.id,
           title: c.title,
@@ -142,20 +131,23 @@ export default function TeacherCalendarPage() {
     return d;
   });
 
-  const [teacherEmail] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("immagreat_teacher_email");
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
 
-  const [allClassrooms] = useState<Classroom[]>(() => {
-    if (typeof window === "undefined") return [];
-    return loadClassrooms();
-  });
-
-  const classrooms = useMemo(() => {
-    if (!teacherEmail) return [];
-    return allClassrooms.filter((c) => c.teacherEmail === teacherEmail);
-  }, [allClassrooms, teacherEmail]);
+  useEffect(() => {
+    const fetchClassrooms = async () => {
+      try {
+        const res = await fetch("/api/teachers/classrooms");
+        const data = await res.json();
+        if (data.classrooms) setClassrooms(data.classrooms);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchClassrooms();
+  }, []);
 
   const range = useMemo(() => {
     if (view === "day") {
@@ -201,12 +193,26 @@ export default function TeacherCalendarPage() {
       });
     }
     if (view === "week") {
-      const s = range.start.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-      const e = range.end.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      const s = range.start.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+      const e = range.end.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
       return `Week: ${s} – ${e}`;
     }
     return monthLabel(anchor);
   }, [anchor, range.end, range.start, view]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-[#C52D2F]" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -217,9 +223,15 @@ export default function TeacherCalendarPage() {
               <CalendarDays className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">Calendar</p>
-              <h1 className="mt-1 text-2xl font-semibold text-[#4D4D4D] sm:text-3xl">Your teaching schedule</h1>
-              <p className="mt-2 text-sm text-[#808080]">Switch views: daily, weekly, monthly.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">
+                Calendar
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold text-[#4D4D4D] sm:text-3xl">
+                Your teaching schedule
+              </h1>
+              <p className="mt-2 text-sm text-[#808080]">
+                Switch views: daily, weekly, monthly.
+              </p>
             </div>
           </div>
 
@@ -257,7 +269,9 @@ export default function TeacherCalendarPage() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <div className="px-2 text-xs font-semibold text-[#4D4D4D]">{headerTitle}</div>
+              <div className="px-2 text-xs font-semibold text-[#4D4D4D]">
+                {headerTitle}
+              </div>
               <button
                 type="button"
                 onClick={next}
@@ -267,13 +281,6 @@ export default function TeacherCalendarPage() {
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-
-            <Link
-              href="/teachers/classrooms"
-              className="rounded-full border border-[#E6E6E6] bg-white px-4 py-2 text-xs font-semibold text-[#4D4D4D] shadow-sm transition hover:-translate-y-0.5 hover:border-[#C52D2F] hover:text-[#C52D2F]"
-            >
-              Classrooms
-            </Link>
           </div>
         </div>
       </section>
@@ -299,10 +306,6 @@ export default function TeacherCalendarPage() {
       ) : (
         <DayView date={anchor} events={events} />
       )}
-
-      <p className="text-xs text-[#808080]">
-        MVP: calendar is derived from locally stored classrooms. Next: Postgres-backed schedule + conflict checks.
-      </p>
     </div>
   );
 }
@@ -310,7 +313,14 @@ export default function TeacherCalendarPage() {
 function DayView({ date, events }: { date: Date; events: EventInstance[] }) {
   const ymd = yyyyMmDd(date);
   const list = events.filter((e) => e.date === ymd);
-  return <TimelineDayView ymd={ymd} date={date} list={list} baseHref="/teachers/classroom" />;
+  return (
+    <TimelineDayView
+      ymd={ymd}
+      date={date}
+      list={list}
+      baseHref="/teachers/classroom"
+    />
+  );
 }
 
 function TimelineDayView({
@@ -343,8 +353,12 @@ function TimelineDayView({
 
   return (
     <section className="rounded-3xl border border-[#E6E6E6] bg-white p-6 shadow-[0_14px_40px_rgba(0,0,0,0.05)] md:p-8">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">{ymd}</p>
-      <h2 className="mt-1 text-xl font-semibold text-[#4D4D4D]">{date.toLocaleDateString(undefined, { weekday: "long" })}</h2>
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">
+        {ymd}
+      </p>
+      <h2 className="mt-1 text-xl font-semibold text-[#4D4D4D]">
+        {date.toLocaleDateString(undefined, { weekday: "long" })}
+      </h2>
 
       <div className="mt-6 overflow-hidden rounded-3xl border border-[#E6E6E6]">
         <div className="max-h-[520px] overflow-auto bg-white">
@@ -366,8 +380,12 @@ function TimelineDayView({
                           href={`${baseHref}/${e.classroomId}`}
                           className="block rounded-2xl border border-[#E6E6E6] bg-[#FFF8F8] p-3 hover:border-[#C52D2F]"
                         >
-                          <p className="text-sm font-semibold text-[#4D4D4D]">{e.title}</p>
-                          <p className="mt-1 text-xs text-[#808080]">{e.startTime}–{e.endTime}</p>
+                          <p className="text-sm font-semibold text-[#4D4D4D]">
+                            {e.title}
+                          </p>
+                          <p className="mt-1 text-xs text-[#808080]">
+                            {e.startTime}–{e.endTime}
+                          </p>
                         </Link>
                       ))}
                     </div>
@@ -406,10 +424,21 @@ function WeekView({
           const ymd = yyyyMmDd(d);
           const list = byDate.get(ymd) ?? [];
           return (
-            <div key={ymd} className="rounded-2xl border border-[#E6E6E6] bg-white p-3">
-              <button type="button" onClick={() => onPickDate(d)} className="w-full text-left">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#808080]">{dayLabel(d)}</p>
-                <p className="text-lg font-semibold text-[#4D4D4D]">{dayNumber(d)}</p>
+            <div
+              key={ymd}
+              className="rounded-2xl border border-[#E6E6E6] bg-white p-3"
+            >
+              <button
+                type="button"
+                onClick={() => onPickDate(d)}
+                className="w-full text-left"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#808080]">
+                  {dayLabel(d)}
+                </p>
+                <p className="text-lg font-semibold text-[#4D4D4D]">
+                  {dayNumber(d)}
+                </p>
               </button>
               <div className="mt-2 space-y-2">
                 {list.length === 0 ? (
@@ -422,11 +451,17 @@ function WeekView({
                       className="block rounded-xl border border-[#E6E6E6] bg-[#FFF8F8] p-2 text-xs hover:border-[#C52D2F]"
                     >
                       <p className="font-semibold line-clamp-1">{e.title}</p>
-                      <p className="text-[11px] text-[#808080]">{e.startTime}</p>
+                      <p className="text-[11px] text-[#808080]">
+                        {e.startTime}
+                      </p>
                     </Link>
                   ))
                 )}
-                {list.length > 4 ? <p className="text-[11px] text-[#808080]">+{list.length - 4} more</p> : null}
+                {list.length > 4 ? (
+                  <p className="text-[11px] text-[#808080]">
+                    +{list.length - 4} more
+                  </p>
+                ) : null}
               </div>
             </div>
           );
@@ -466,7 +501,10 @@ function MonthView({
     <section className="rounded-3xl border border-[#E6E6E6] bg-white p-6 shadow-[0_14px_40px_rgba(0,0,0,0.05)] md:p-8">
       <div className="grid grid-cols-7 gap-2">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-          <div key={d} className="px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#808080]">
+          <div
+            key={d}
+            className="px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#808080]"
+          >
             {d}
           </div>
         ))}
@@ -486,9 +524,13 @@ function MonthView({
               }`}
             >
               <div className="flex items-start justify-between">
-                <p className="text-sm font-semibold text-[#4D4D4D]">{dayNumber(d)}</p>
+                <p className="text-sm font-semibold text-[#4D4D4D]">
+                  {dayNumber(d)}
+                </p>
                 {count > 0 ? (
-                  <span className="rounded-full bg-[#C52D2F] px-2 py-0.5 text-[11px] font-semibold text-white">{count}</span>
+                  <span className="rounded-full bg-[#C52D2F] px-2 py-0.5 text-[11px] font-semibold text-white">
+                    {count}
+                  </span>
                 ) : null}
               </div>
               {count > 0 ? (

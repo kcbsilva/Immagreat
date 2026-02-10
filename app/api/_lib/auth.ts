@@ -8,7 +8,7 @@ const COOKIE_NAME = "immagreat_session";
 export type SessionPayload = {
   sub: string;
   email: string;
-  role: "STUDENT" | "TEACHER" | "MODERATOR";
+  role: "STUDENT" | "TEACHER" | "MODERATOR" | "ADMIN";
 };
 
 export async function hashPassword(password: string) {

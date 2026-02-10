@@ -1,37 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Immagreat 🎓
 
-## Getting Started
+Immagreat is a modern, full-stack platform designed for providing online English classes. It leverages real-time video streaming and a structured management system to connect teachers and students in a seamless virtual classroom environment.
 
-First, run the development server:
+## 🚀 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Real-time Virtual Classrooms**: Powered by LiveKit for low-latency video and audio streaming.
+- **Role-Based Access Control**: Tailored experiences for Students, Teachers, and Moderators.
+- **Session Management**: Create, manage, and track classroom sessions and enrollments.
+- **Responsive Design**: Built with Tailwind CSS v4 for a modern, mobile-friendly interface.
+- **Robust Backend**: Next.js App Router for server-side logic and Prisma for database orchestration.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠️ Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Frontend**: Next.js 16 (React 19), Tailwind CSS v4, Lucide Icons
+- **Backend**: Next.js API Routes, Prisma ORM
+- **Real-time Communication**: LiveKit Server, CoTurn (STUN/TURN)
+- **Database**: PostgreSQL
+- **Authentication**: JWT-based auth (jose, bcryptjs)
+- **Containerization**: Docker & Docker Compose
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🏁 Getting Started
 
-## Learn More
+### Prerequisites
 
-To learn more about Next.js, take a look at the following resources:
+- [Node.js](https://nodejs.org/) (v20 or higher)
+- [Docker & Docker Compose](https://www.docker.com/products/docker-desktop)
+- [npm](https://www.npmjs.com/)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Installation & Setup
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1.  **Clone the repository:**
 
-## Deploy on Vercel
+    ```bash
+    git clone https://github.com/your-username/immagreat.git
+    cd immagreat
+    ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2.  **Install dependencies:**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# Immagreat
+    ```bash
+    npm install
+    ```
+
+3.  **Environment Variables:**
+    Copy the example environment file and fill in your credentials:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+4.  **Start Infrastructure:**
+    Spin up PostgreSQL and LiveKit using Docker:
+
+    ```bash
+    docker-compose up -d
+    ```
+
+5.  **Database Migration:**
+    Generate the Prisma client and push the schema to your database:
+
+    ```bash
+    npm run db:generate
+    npm run db:migrate
+    ```
+
+6.  **Run Development Server:**
+    ```bash
+    npm run dev
+    ```
+    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## 📂 Project Structure
+
+- `app/`: Next.js App Router (pages, components, and API routes).
+  - `landing/`: Public marketing pages.
+  - `students/`: Student-specific dashboard and views.
+  - `teachers/`: Teacher-specific dashboard and classroom controls.
+  - `api/`: Backend endpoints (Auth, LiveKit tokens).
+- `prisma/`: Database schema and migration files.
+- `infra/`: Infrastructure configuration (e.g., LiveKit yaml).
+- `public/`: Static assets.
+
+## 📄 License
+
+This project is private and proprietary.

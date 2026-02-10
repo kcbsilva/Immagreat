@@ -1,22 +1,20 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 
 type ViewMode = "day" | "week" | "month";
 
 type Classroom = {
   id: string;
   title: string;
-  teacherEmail: string;
-  createdAtMs: number;
-  startDate?: string; // YYYY-MM-DD
-  endDate?: string; // YYYY-MM-DD
-  startTime?: string; // HH:MM
-  endTime?: string; // HH:MM
-  days?: boolean[]; // Sun..Sat
-  enrolledStudentEmails?: string[];
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+  days: number[]; // 0..6
 };
 
 type EventInstance = {
@@ -27,17 +25,6 @@ type EventInstance = {
   endTime: string;
 };
 
-function loadClassrooms(): Classroom[] {
-  try {
-    const raw = localStorage.getItem("immagreat_classrooms");
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Classroom[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 function yyyyMmDd(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -46,7 +33,6 @@ function yyyyMmDd(d: Date) {
 }
 
 function parseYmd(ymd: string): Date {
-  // Safe parse for YYYY-MM-DD
   const [y, m, d] = ymd.split("-").map((n) => Number(n));
   return new Date(y, (m ?? 1) - 1, d ?? 1);
 }
@@ -58,7 +44,6 @@ function addDays(d: Date, days: number): Date {
 }
 
 function startOfWeek(d: Date): Date {
-  // Sunday start
   const x = new Date(d);
   const dow = x.getDay();
   x.setDate(x.getDate() - dow);
@@ -93,24 +78,23 @@ function dayNumber(d: Date) {
 function generateEventsForRange(
   classrooms: Classroom[],
   rangeStart: Date,
-  rangeEnd: Date
+  rangeEnd: Date,
 ): EventInstance[] {
   const events: EventInstance[] = [];
 
   for (const c of classrooms) {
-    if (!c.startDate || !c.endDate || !c.startTime || !c.endTime || !c.days) continue;
+    if (!c.startDate || !c.endDate || !c.startTime || !c.endTime || !c.days)
+      continue;
 
-    const periodStart = parseYmd(c.startDate);
-    const periodEnd = parseYmd(c.endDate);
+    const periodStart = parseYmd(c.startDate.split("T")[0]);
+    const periodEnd = parseYmd(c.endDate.split("T")[0]);
 
-    // intersect ranges
-    const start = rangeStart.getTime() > periodStart.getTime() ? rangeStart : periodStart;
+    const start =
+      rangeStart.getTime() > periodStart.getTime() ? rangeStart : periodStart;
     const end = rangeEnd.getTime() < periodEnd.getTime() ? rangeEnd : periodEnd;
 
-    // If no overlap
     if (start.getTime() > end.getTime()) continue;
 
-    // Iterate day-by-day for MVP (fine for week/month).
     let cur = new Date(start);
     cur.setHours(0, 0, 0, 0);
 
@@ -119,7 +103,7 @@ function generateEventsForRange(
 
     while (cur.getTime() <= last.getTime()) {
       const dow = cur.getDay();
-      if (c.days[dow]) {
+      if (c.days.includes(dow)) {
         events.push({
           classroomId: c.id,
           title: c.title,
@@ -132,7 +116,6 @@ function generateEventsForRange(
     }
   }
 
-  // Sort: date then time
   events.sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date);
     return a.startTime.localeCompare(b.startTime);
@@ -142,6 +125,7 @@ function generateEventsForRange(
 }
 
 export default function StudentCalendarPage() {
+  const router = useRouter();
   const [view, setView] = useState<ViewMode>("week");
   const [anchor, setAnchor] = useState<Date>(() => {
     const d = new Date();
@@ -149,33 +133,35 @@ export default function StudentCalendarPage() {
     return d;
   });
 
-  const [studentEmail] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("immagreat_student_email")?.toLowerCase() ?? null;
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
 
-  const [classrooms] = useState<Classroom[]>(() => {
-    if (typeof window === "undefined") return [];
-    const all = loadClassrooms();
-    if (!studentEmail) return [];
-
-    // Only show classes explicitly assigned to this student.
-    return all.filter((c) => {
-      const list = (c.enrolledStudentEmails ?? []) as string[];
-      return list.map((x) => String(x).toLowerCase()).includes(studentEmail);
-    });
-  });
+  useEffect(() => {
+    const fetchClassrooms = async () => {
+      try {
+        const res = await fetch("/api/students/classrooms");
+        if (!res.ok) {
+          router.push("/students/login");
+          return;
+        }
+        const data = await res.json();
+        if (data.classrooms) setClassrooms(data.classrooms);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchClassrooms();
+  }, [router]);
 
   const range = useMemo(() => {
-    if (view === "day") {
-      return { start: anchor, end: anchor };
-    }
+    if (view === "day") return { start: anchor, end: anchor };
     if (view === "week") {
       const start = startOfWeek(anchor);
       const end = addDays(start, 6);
       return { start, end };
     }
-    // month
     const start = startOfMonth(anchor);
     const end = endOfMonth(anchor);
     return { start, end };
@@ -202,14 +188,34 @@ export default function StudentCalendarPage() {
   }
 
   const headerTitle = useMemo(() => {
-    if (view === "day") return anchor.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    if (view === "day")
+      return anchor.toLocaleDateString(undefined, {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
     if (view === "week") {
-      const s = range.start.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-      const e = range.end.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      const s = range.start.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+      const e = range.end.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
       return `Week: ${s} – ${e}`;
     }
     return monthLabel(anchor);
   }, [anchor, range.end, range.start, view]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-[#C52D2F]" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -220,66 +226,62 @@ export default function StudentCalendarPage() {
               <CalendarDays className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">Calendar</p>
-              <h1 className="mt-1 text-2xl font-semibold text-[#4D4D4D] sm:text-3xl">Your schedule</h1>
-              <p className="mt-2 text-sm text-[#808080]">Switch views: daily, weekly, monthly.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">
+                Student Portal
+              </p>
+              <h1 className="mt-1 text-2xl font-bold text-[#4D4D4D] sm:text-3xl">
+                My Study Calendar
+              </h1>
+              <p className="mt-2 text-sm text-[#808080]">
+                Manage your schedule and join live classes.
+              </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center rounded-full border border-[#E6E6E6] bg-white p-1 text-xs font-semibold">
+            <div className="flex items-center rounded-full border border-[#E6E6E6] bg-white p-1 text-xs font-bold">
               <button
                 type="button"
                 onClick={() => setView("day")}
-                className={`rounded-full px-3 py-2 transition ${view === "day" ? "bg-[#C52D2F] text-white" : "text-[#4D4D4D]"}`}
-
+                className={`rounded-full px-4 py-2 transition ${view === "day" ? "bg-[#C52D2F] text-white" : "text-[#4D4D4D]"}`}
               >
                 Day
               </button>
               <button
                 type="button"
                 onClick={() => setView("week")}
-                className={`rounded-full px-3 py-2 transition ${view === "week" ? "bg-[#C52D2F] text-white" : "text-[#4D4D4D]"}`}
-
+                className={`rounded-full px-4 py-2 transition ${view === "week" ? "bg-[#C52D2F] text-white" : "text-[#4D4D4D]"}`}
               >
                 Week
               </button>
               <button
                 type="button"
                 onClick={() => setView("month")}
-                className={`rounded-full px-3 py-2 transition ${view === "month" ? "bg-[#C52D2F] text-white" : "text-[#4D4D4D]"}`}
-
+                className={`rounded-full px-4 py-2 transition ${view === "month" ? "bg-[#C52D2F] text-white" : "text-[#4D4D4D]"}`}
               >
                 Month
               </button>
             </div>
 
-            <div className="inline-flex items-center gap-1 rounded-full border border-[#E6E6E6] bg-white p-1">
+            <div className="flex items-center gap-1 rounded-full border border-[#E6E6E6] bg-white p-1">
               <button
                 type="button"
                 onClick={prev}
-                className="rounded-full px-3 py-2 text-xs font-semibold text-[#4D4D4D] transition hover:text-[#C52D2F]"
-                aria-label="Previous"
+                className="rounded-full px-3 py-2 text-xs font-semibold hover:text-[#C52D2F]"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <div className="px-2 text-xs font-semibold text-[#4D4D4D]">{headerTitle}</div>
+              <div className="px-3 text-xs font-bold text-[#4D4D4D] uppercase tracking-wider">
+                {headerTitle}
+              </div>
               <button
                 type="button"
                 onClick={next}
-                className="rounded-full px-3 py-2 text-xs font-semibold text-[#4D4D4D] transition hover:text-[#C52D2F]"
-                aria-label="Next"
+                className="rounded-full px-3 py-2 text-xs font-semibold hover:text-[#C52D2F]"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-
-            <Link
-              href="/students/classroom"
-              className="rounded-full border border-[#E6E6E6] bg-white px-4 py-2 text-xs font-semibold text-[#4D4D4D] shadow-sm transition hover:-translate-y-0.5 hover:border-[#C52D2F] hover:text-[#C52D2F]"
-            >
-              Classroom
-            </Link>
           </div>
         </div>
       </section>
@@ -305,10 +307,6 @@ export default function StudentCalendarPage() {
       ) : (
         <DayView date={anchor} events={events} />
       )}
-
-      <p className="text-xs text-[#808080]">
-        MVP: schedule is derived from locally stored classrooms. Next: pull from Postgres + enrollment, and show only classes you are assigned to.
-      </p>
     </div>
   );
 }
@@ -316,7 +314,27 @@ export default function StudentCalendarPage() {
 function DayView({ date, events }: { date: Date; events: EventInstance[] }) {
   const ymd = yyyyMmDd(date);
   const list = events.filter((e) => e.date === ymd);
+  return (
+    <TimelineDayView
+      ymd={ymd}
+      date={date}
+      list={list}
+      baseHref="/students/classroom"
+    />
+  );
+}
 
+function TimelineDayView({
+  ymd,
+  date,
+  list,
+  baseHref,
+}: {
+  ymd: string;
+  date: Date;
+  list: EventInstance[];
+  baseHref: string;
+}) {
   const startMinutes = 6 * 60;
   const endMinutes = 22 * 60;
   const slots = [] as { label: string; key: string }[];
@@ -335,46 +353,57 @@ function DayView({ date, events }: { date: Date; events: EventInstance[] }) {
   }
 
   return (
-    <section className="rounded-3xl border border-[#E6E6E6] bg-white p-6 shadow-[0_14px_40px_rgba(0,0,0,0.05)] md:p-8">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#808080]">{ymd}</p>
-      <h2 className="mt-1 text-xl font-semibold text-[#4D4D4D]">{date.toLocaleDateString(undefined, { weekday: "long" })}</h2>
-
-      <div className="mt-6 overflow-hidden rounded-3xl border border-[#E6E6E6]">
-        <div className="max-h-[520px] overflow-auto bg-white">
-          {slots.map((s) => {
-            const eventsAt = byStart.get(s.key) ?? [];
-            return (
-              <div key={s.key} className="flex border-b border-[#F0F0F0]">
-                <div className="w-20 shrink-0 border-r border-[#F0F0F0] px-4 py-3 text-xs font-semibold text-[#808080]">
-                  {s.label}
-                </div>
-                <div className="flex-1 px-4 py-3">
-                  {eventsAt.length === 0 ? (
-                    <div className="h-6" />
-                  ) : (
-                    <div className="space-y-2">
-                      {eventsAt.map((e) => (
-                        <Link
-                          key={`${e.classroomId}-${e.startTime}`}
-                          href={`/students/classroom/${e.classroomId}`}
-                          className="block rounded-2xl border border-[#E6E6E6] bg-[#FFF8F8] p-3 hover:border-[#C52D2F]"
-                        >
-                          <p className="text-sm font-semibold text-[#4D4D4D]">{e.title}</p>
-                          <p className="mt-1 text-xs text-[#808080]">{e.startTime}–{e.endTime}</p>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+    <section className="rounded-3xl border border-[#E6E6E6] bg-white p-8 shadow-sm">
+      <div className="flex justify-between items-end border-b pb-6">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-[#808080]">
+            {ymd}
+          </p>
+          <h2 className="mt-1 text-2xl font-bold text-[#4D4D4D]">
+            {date.toLocaleDateString(undefined, { weekday: "long" })}
+          </h2>
+        </div>
+        <div className="text-xs font-bold text-[#C52D2F] uppercase tracking-widest bg-red-50 px-4 py-2 rounded-full border border-red-100">
+          {list.length} Classes Today
         </div>
       </div>
 
-      {list.length === 0 ? (
-        <p className="mt-4 text-sm text-[#808080]">No classes scheduled.</p>
-      ) : null}
+      <div className="mt-8 space-y-4">
+        {list.length === 0 ? (
+          <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-3xl">
+            <p className="text-sm text-[#808080]">
+              No classes scheduled for today.
+            </p>
+          </div>
+        ) : (
+          slots.map((s) => {
+            const items = byStart.get(s.key) || [];
+            if (items.length === 0) return null;
+            return items.map((item) => (
+              <Link
+                key={item.classroomId}
+                href={`${baseHref}/${item.classroomId}`}
+                className="flex items-center gap-6 p-6 rounded-3xl border border-[#E6E6E6] bg-white hover:border-[#C52D2F] transition group"
+              >
+                <div className="w-24 shrink-0 text-lg font-bold text-[#4D4D4D]">
+                  {item.startTime}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-[#4D4D4D]">
+                    {item.title}
+                  </h3>
+                  <p className="text-sm text-[#808080]">
+                    {item.startTime} – {item.endTime}
+                  </p>
+                </div>
+                <div className="rounded-full bg-[#C52D2F] px-6 py-2 text-xs font-bold text-white transition group-hover:scale-105">
+                  Join Session
+                </div>
+              </Link>
+            ));
+          })
+        )}
+      </div>
     </section>
   );
 }
@@ -397,45 +426,47 @@ function WeekView({
   }
 
   return (
-    <section className="rounded-3xl border border-[#E6E6E6] bg-white p-6 shadow-[0_14px_40px_rgba(0,0,0,0.05)] md:p-8">
-      <div className="grid gap-3 md:grid-cols-7">
-        {days.map((d) => {
-          const ymd = yyyyMmDd(d);
-          const list = byDate.get(ymd) ?? [];
-          return (
-            <div key={ymd} className="rounded-2xl border border-[#E6E6E6] bg-white p-3">
-              <button
-                type="button"
-                onClick={() => onPickDate(d)}
-                className="w-full text-left"
+    <div className="grid gap-4 md:grid-cols-7">
+      {days.map((d) => {
+        const ymd = yyyyMmDd(d);
+        const list = byDate.get(ymd) || [];
+        const isToday = ymd === yyyyMmDd(new Date());
+
+        return (
+          <div
+            key={ymd}
+            className={`rounded-3xl border border-[#E6E6E6] bg-white p-4 flex flex-col min-h-[300px] transition hover:shadow-lg ${isToday ? "ring-2 ring-[#C52D2F] ring-offset-2" : ""}`}
+          >
+            <button
+              type="button"
+              onClick={() => onPickDate(d)}
+              className="text-left mb-4"
+            >
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#808080]">
+                {dayLabel(d)}
+              </p>
+              <p
+                className={`text-2xl font-bold ${isToday ? "text-[#C52D2F]" : "text-[#4D4D4D]"}`}
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#808080]">{dayLabel(d)}</p>
-                <p className="text-lg font-semibold text-[#4D4D4D]">{dayNumber(d)}</p>
-              </button>
-              <div className="mt-2 space-y-2">
-                {list.length === 0 ? (
-                  <p className="text-xs text-[#808080]">—</p>
-                ) : (
-                  list.slice(0, 4).map((e) => (
-                    <Link
-                      key={`${e.classroomId}-${e.startTime}`}
-                      href={`/students/classroom/${e.classroomId}`}
-                      className="block rounded-xl border border-[#E6E6E6] bg-[#FFF8F8] p-2 text-xs hover:border-[#C52D2F]"
-                    >
-                      <p className="font-semibold line-clamp-1">{e.title}</p>
-                      <p className="text-[11px] text-[#808080]">{e.startTime}</p>
-                    </Link>
-                  ))
-                )}
-                {list.length > 4 ? (
-                  <p className="text-[11px] text-[#808080]">+{list.length - 4} more</p>
-                ) : null}
-              </div>
+                {dayNumber(d)}
+              </p>
+            </button>
+            <div className="flex-1 space-y-2">
+              {list.map((e) => (
+                <Link
+                  key={e.classroomId}
+                  href={`/students/classroom/${e.classroomId}`}
+                  className="block rounded-2xl bg-slate-50 p-2 text-[10px] font-bold text-[#4D4D4D] border border-transparent hover:border-[#C52D2F] transition"
+                >
+                  <p className="truncate">{e.title}</p>
+                  <p className="mt-1 text-[#808080]">{e.startTime}</p>
+                </Link>
+              ))}
             </div>
-          );
-        })}
-      </div>
-    </section>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -450,7 +481,6 @@ function MonthView({
 }) {
   const start = startOfWeek(startOfMonth(anchor));
   const end = addDays(startOfWeek(endOfMonth(anchor)), 6);
-
   const days: Date[] = [];
   let cur = new Date(start);
   while (cur.getTime() <= end.getTime()) {
@@ -459,47 +489,41 @@ function MonthView({
   }
 
   const byDate = new Map<string, number>();
-  for (const e of events) {
-    byDate.set(e.date, (byDate.get(e.date) ?? 0) + 1);
-  }
-
-  const monthIdx = anchor.getMonth();
+  for (const e of events) byDate.set(e.date, (byDate.get(e.date) ?? 0) + 1);
 
   return (
-    <section className="rounded-3xl border border-[#E6E6E6] bg-white p-6 shadow-[0_14px_40px_rgba(0,0,0,0.05)] md:p-8">
-      <div className="grid grid-cols-7 gap-2">
+    <section className="rounded-3xl border border-[#E6E6E6] bg-white p-8 shadow-sm">
+      <div className="grid grid-cols-7 gap-4">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-          <div key={d} className="px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#808080]">
+          <div
+            key={d}
+            className="text-center text-[10px] font-bold uppercase tracking-widest text-[#808080] mb-2"
+          >
             {d}
           </div>
         ))}
-
         {days.map((d) => {
           const ymd = yyyyMmDd(d);
-          const count = byDate.get(ymd) ?? 0;
-          const isOtherMonth = d.getMonth() !== monthIdx;
-
+          const count = byDate.get(ymd) || 0;
+          const isOtherMonth = d.getMonth() !== anchor.getMonth();
           return (
             <button
               key={ymd}
-              type="button"
               onClick={() => onPickDate(d)}
-              className={`h-24 rounded-2xl border border-[#E6E6E6] p-2 text-left transition hover:border-[#C52D2F] ${
-                isOtherMonth ? "bg-white/60 opacity-60" : "bg-white"
-              }`}
+              className={`h-24 rounded-2xl border border-[#E6E6E6] p-3 text-left transition hover:border-[#C52D2F] ${isOtherMonth ? "opacity-30" : "bg-white"}`}
             >
-              <div className="flex items-start justify-between">
-                <p className="text-sm font-semibold text-[#4D4D4D]">{dayNumber(d)}</p>
-                {count > 0 ? (
-                  <span className="rounded-full bg-[#C52D2F] px-2 py-0.5 text-[11px] font-semibold text-white">
-                    {count}
-                  </span>
-                ) : null}
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-bold text-[#4D4D4D]">
+                  {dayNumber(d)}
+                </span>
+                {count > 0 && (
+                  <span className="h-2 w-2 rounded-full bg-[#C52D2F]" />
+                )}
               </div>
-              {count > 0 ? (
-                <p className="mt-2 text-[11px] text-[#808080]">classes</p>
-              ) : (
-                <p className="mt-2 text-[11px] text-[#B0B0B0]">—</p>
+              {count > 0 && (
+                <p className="mt-2 text-[9px] font-bold uppercase text-[#808080]">
+                  {count} Classes
+                </p>
               )}
             </button>
           );
